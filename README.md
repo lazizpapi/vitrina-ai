@@ -1,3 +1,5 @@
+[Русский](README.ru.md)
+
 # Vitrina AI
 
 A Telegram bot that turns one product photo into a full marketplace card set for
@@ -102,8 +104,9 @@ npm test
 ```
 
 Covers the Click signature and callback state machine, price and bullet parsing,
-the prompt builder including its offline fallback, and the infographic renderer.
-Nothing in the suite touches the network.
+the prompt builder including its offline fallback, the infographic renderer, and
+the whole generation pipeline against a scripted provider. Nothing in the suite
+touches the network, so a clone runs the full suite green with no keys at all.
 
 ## Deploying
 

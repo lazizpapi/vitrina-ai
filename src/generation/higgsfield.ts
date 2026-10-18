@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { createHiggsfieldClient, type HiggsfieldClient } from "@higgsfield/client/v2";
 import {
   AuthenticationError,
@@ -10,9 +11,20 @@ import { config } from "../config.js";
 import { GenerationFailed, type GenerateRequest, type GenerateResult, type ImageProvider } from "./provider.js";
 import { Semaphore } from "./limit.js";
 
+/** Builds a client whose every request carries the given idempotency key. */
+export type ClientFactory = (idempotencyKey: string) => HiggsfieldClient;
+
+const defaultFactory: ClientFactory = (idempotencyKey) =>
+  createHiggsfieldClient({
+    credentials: config.higgsfield.apiKey,
+    baseURL: config.higgsfield.baseUrl,
+    pollInterval: 2_000,
+    maxPollTime: 180_000,
+    headers: { "Idempotency-Key": idempotencyKey },
+  });
+
 export class HiggsfieldProvider implements ImageProvider {
   readonly name = "higgsfield";
-  private readonly client: HiggsfieldClient;
   /**
    * The concurrency limit is per Higgsfield account, so one gate covers every
    * pack in the process. A request over the limit is rejected, not queued,
@@ -20,22 +32,24 @@ export class HiggsfieldProvider implements ImageProvider {
    */
   private readonly gate: Semaphore;
 
-  constructor(client?: HiggsfieldClient, concurrency: number = config.higgsfield.concurrency) {
+  /**
+   * One key per generation. The SDK retries a POST whose response was lost to
+   * a timeout or a 5xx, and without a key that retry would start, and bill, a
+   * second generation for one the server already accepted. The key rides on
+   * the client because the SDK takes headers per client, not per request.
+   */
+  constructor(
+    private readonly makeClient: ClientFactory = defaultFactory,
+    concurrency: number = config.higgsfield.concurrency,
+  ) {
     this.gate = new Semaphore(concurrency);
-    this.client =
-      client ??
-      createHiggsfieldClient({
-        credentials: config.higgsfield.apiKey,
-        baseURL: config.higgsfield.baseUrl,
-        pollInterval: 2_000,
-        maxPollTime: 180_000,
-      });
   }
 
   async generate(req: GenerateRequest): Promise<GenerateResult> {
     let res;
     try {
-      res = await this.gate.run(() => this.client.subscribe(req.endpoint, {
+      const client = this.makeClient(randomUUID());
+      res = await this.gate.run(() => client.subscribe(req.endpoint, {
         withPolling: true,
         input: {
           prompt: req.prompt,

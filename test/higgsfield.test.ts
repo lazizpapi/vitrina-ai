@@ -48,7 +48,7 @@ const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 describe("HiggsfieldProvider concurrency", () => {
   it("never runs more generations at once than the account allows", async () => {
     const api = heldClient();
-    const provider = new HiggsfieldProvider(api.client, 2);
+    const provider = new HiggsfieldProvider(() => api.client, 2);
 
     const jobs = Array.from({ length: 4 }, () => provider.generate(request));
     await tick();
@@ -66,7 +66,7 @@ describe("HiggsfieldProvider concurrency", () => {
 
   it("shares one limit across separate packs, because the limit is per account", async () => {
     const api = heldClient();
-    const provider = new HiggsfieldProvider(api.client, 2);
+    const provider = new HiggsfieldProvider(() => api.client, 2);
 
     const sellerA = [provider.generate(request), provider.generate(request)];
     const sellerB = [provider.generate(request), provider.generate(request)];
@@ -124,5 +124,41 @@ describe("Semaphore", () => {
 
   it("refuses a limit below one", () => {
     expect(() => new Semaphore(0)).toThrow();
+  });
+});
+
+describe("HiggsfieldProvider idempotency", () => {
+  function recordingFactory() {
+    const keys: string[] = [];
+    const client = {
+      async subscribe() {
+        return {
+          status: "completed",
+          request_id: "req",
+          status_url: "",
+          cancel_url: "",
+          images: [{ url: "https://cdn.test/out.jpg" }],
+        };
+      },
+    } as unknown as HiggsfieldClient;
+    return {
+      keys,
+      factory: (key: string) => {
+        keys.push(key);
+        return client;
+      },
+    };
+  }
+
+  it("sends every generation with its own idempotency key", async () => {
+    const rec = recordingFactory();
+    const provider = new HiggsfieldProvider(rec.factory, 2);
+
+    await provider.generate(request);
+    await provider.generate(request);
+
+    expect(rec.keys).toHaveLength(2);
+    expect(rec.keys[0]).toMatch(/^[0-9a-f-]{36}$/);
+    expect(rec.keys[0]).not.toBe(rec.keys[1]);
   });
 });

@@ -54,6 +54,25 @@ describe("buildPrompts", () => {
     expect(request).not.toHaveProperty("thinking");
   });
 
+  it("leaves out the refusal fallback on Haiku, which rejects it with a 400", async () => {
+    const { config } = await import("../src/config.js");
+    const settings = config.anthropic as { model: string };
+    const original = settings.model;
+    settings.model = "claude-haiku-5-5";
+    parse.mockResolvedValueOnce(reply(good));
+
+    try {
+      await buildPrompts(brief);
+    } finally {
+      settings.model = original;
+    }
+
+    const request = parse.mock.calls[0]![0];
+    expect(request.model).toBe("claude-haiku-5-5");
+    expect(request).not.toHaveProperty("fallbacks");
+    expect(request).not.toHaveProperty("betas");
+  });
+
   it("appends the card guidance and the no-text clause to every prompt", async () => {
     parse.mockResolvedValueOnce(reply(good));
 

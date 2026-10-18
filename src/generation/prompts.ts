@@ -67,10 +67,7 @@ export async function buildPrompts(brief: ProductBrief): Promise<PromptSet> {
       // and its default there is medium. Set explicitly so a model change does
       // not silently change cost.
       output_config: { effort: "medium", format: betaZodOutputFormat(PromptSetSchema) },
-      // On a safety decline, rerun on Anthropic's recommended model for that
-      // category instead of failing the pack.
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
+      ...refusalFallback(config.anthropic.model),
     });
 
     if (res.stop_reason === "refusal") throw new Error("declined by every model in the fallback chain");
@@ -80,6 +77,16 @@ export async function buildPrompts(brief: ProductBrief): Promise<PromptSet> {
     console.warn(`prompt writer unavailable, using templates: ${err instanceof Error ? err.message : String(err)}`);
     return finalize(fallback(brief), brief);
   }
+}
+
+/**
+ * On a safety decline, rerun on Anthropic's recommended model for that
+ * category instead of failing the pack. Haiku has no server-side fallback and
+ * rejects the parameter with a 400, so it is sent only to Opus and Sonnet.
+ */
+function refusalFallback(model: string) {
+  if (model.startsWith("claude-haiku")) return {};
+  return { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const };
 }
 
 function briefForModel(brief: ProductBrief) {

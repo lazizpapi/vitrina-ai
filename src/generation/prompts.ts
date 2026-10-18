@@ -1,4 +1,6 @@
-import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
+import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
+import { z } from "zod";
 import { config } from "../config.js";
 import { CARDS, CARD_ORDER, GLOBAL_NEGATIVE } from "./cards.js";
 import type { ProductBrief, PromptSet } from "./brief.js";
@@ -6,76 +8,76 @@ import type { ProductBrief, PromptSet } from "./brief.js";
 const SYSTEM = `You write prompts for a product photography image model, for e-commerce
 sellers on Uzum, Wildberries and Ozon.
 
-You receive a product brief written in Uzbek or Russian, plus the product's own photo
-(described only by its title). You return English scene prompts, one per card type.
+You receive a product brief written in Uzbek or Russian. The image model also
+receives the seller's own photo of the product, which you cannot see; you know the
+product only by its title and selling points.
 
-Rules:
-- The product must stay pixel-faithful to the seller's reference photo in every prompt.
-  Never invent a different product, colour, label or shape.
-- Describe only the scene, light, surface, props and camera. 40 to 70 words each.
-- Never ask for text, letters, numbers, logos or watermarks in the image.
-- Scenes must suit the product category and a Central Asian / CIS marketplace audience.
-- overlay.title: at most 40 characters, in the SAME language as the brief.
-- overlay.bullets: exactly three, at most 32 characters each, in the SAME language as the
-  brief, each a concrete selling point. Invent sensible ones only if the brief gives none.`;
+For each of four card types, write an English scene prompt:
+- main: the seller's product on a clean studio backdrop.
+- lifestyle: the product in a real scene that suits its category.
+- model: one person holding or using the product.
+- infographic: a backdrop with the product low in frame and empty space above it.
 
-const schema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["category", "prompts", "overlay"],
-  properties: {
-    category: { type: "string" },
-    prompts: {
-      type: "object",
-      additionalProperties: false,
-      required: ["main", "lifestyle", "model", "infographic"],
-      properties: {
-        main: { type: "string" },
-        lifestyle: { type: "string" },
-        model: { type: "string" },
-        infographic: { type: "string" },
-      },
-    },
-    overlay: {
-      type: "object",
-      additionalProperties: false,
-      required: ["title", "bullets"],
-      properties: {
-        title: { type: "string" },
-        bullets: { type: "array", items: { type: "string" } },
-      },
-    },
-  },
-} as const;
+The product must stay faithful to the seller's photo in every prompt, because
+marketplace moderators reject listings whose photo changes the real product. So
+describe only the scene, light, surface, props and camera, never the product's
+colour, shape or packaging. Keep each prompt between 40 and 70 words. Never ask for
+text, letters, numbers, logos or watermarks in the image; captions are added later
+by other software, and a model asked for lettering in Cyrillic or Uzbek gets it
+wrong. Choose scenes that a buyer in Central Asia or the wider CIS would recognise.
 
-let client: OpenAI | null = null;
-function openai(): OpenAI {
-  client ??= new OpenAI({ apiKey: config.openai.apiKey });
+Also write overlay copy in the same language as the brief: a title of at most 40
+characters, and exactly three selling points of at most 32 characters each. Use the
+seller's points where given; where they gave fewer than three, add sensible,
+concrete ones.`;
+
+const PromptSetSchema = z.object({
+  category: z.string(),
+  prompts: z.object({
+    main: z.string(),
+    lifestyle: z.string(),
+    model: z.string(),
+    infographic: z.string(),
+  }),
+  overlay: z.object({
+    title: z.string(),
+    bullets: z.array(z.string()),
+  }),
+});
+
+let client: Anthropic | null = null;
+function anthropic(): Anthropic {
+  client ??= new Anthropic();
   return client;
 }
 
 /**
  * Turns a seller's brief into four scene prompts plus overlay copy.
- * Falls back to templates when OpenAI is unavailable, so a pack never fails
- * just because the prompt writer is down.
+ * Falls back to templates when Claude is unavailable or declines, so a pack
+ * never fails just because the prompt writer did.
  */
 export async function buildPrompts(brief: ProductBrief): Promise<PromptSet> {
   try {
-    const res = await openai().chat.completions.create({
-      model: config.openai.model,
-      messages: [
-        { role: "system", content: SYSTEM },
-        { role: "user", content: JSON.stringify(briefForModel(brief)) },
-      ],
-      response_format: {
-        type: "json_schema",
-        json_schema: { name: "prompt_set", strict: true, schema },
-      },
+    const res = await anthropic().beta.messages.parse({
+      model: config.anthropic.model,
+      max_tokens: 16_000,
+      system: SYSTEM,
+      messages: [{ role: "user", content: JSON.stringify(briefForModel(brief)) }],
+      // Thinking is always on for Claude Opus 5.5; effort is the only control,
+      // and its default there is medium. Set explicitly so a model change does
+      // not silently change cost.
+      output_config: { effort: "medium", format: betaZodOutputFormat(PromptSetSchema) },
+      // On a safety decline, rerun on Anthropic's recommended model for that
+      // category instead of failing the pack.
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
     });
-    const raw = res.choices[0]?.message?.content;
-    if (!raw) throw new Error("empty completion");
-    return finalize(JSON.parse(raw) as PromptSet, brief);
-  } catch {
+
+    if (res.stop_reason === "refusal") throw new Error("declined by every model in the fallback chain");
+    if (!res.parsed_output) throw new Error(`no structured output (stop_reason ${res.stop_reason})`);
+    return finalize(res.parsed_output, brief);
+  } catch (err) {
+    console.warn(`prompt writer unavailable, using templates: ${err instanceof Error ? err.message : String(err)}`);
     return finalize(fallback(brief), brief);
   }
 }

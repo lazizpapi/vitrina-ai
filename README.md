@@ -58,7 +58,7 @@ that worked and the credit goes back.
 
 TypeScript on Node 22+, [grammY](https://grammy.dev) for Telegram, Supabase for
 Postgres and object storage, [sharp](https://sharp.pixelplumbing.com) for
-compositing, OpenAI for turning a Uzbek or Russian brief into English scene
+compositing, Claude for turning a Uzbek or Russian brief into English scene
 prompts, and the official Higgsfield SDK.
 
 ## Setup
@@ -76,7 +76,8 @@ cp .env.example .env
    storage bucket is created on first boot.
 3. **Telegram.** Create a bot with [@BotFather](https://t.me/BotFather) and put the
    token in `BOT_TOKEN`.
-4. **OpenAI.** Any key works; the default model is set by `OPENAI_MODEL`.
+4. **Anthropic.** Put an API key in `ANTHROPIC_API_KEY`. The model defaults to
+   Claude Opus 5.5 and can be changed with `ANTHROPIC_MODEL`.
 5. **Click (optional).** Sign a merchant contract, then set the four `CLICK_*`
    values, point the Shop API Prepare and Complete URLs at
    `$PUBLIC_URL/click/prepare` and `$PUBLIC_URL/click/complete`, and set

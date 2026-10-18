@@ -23,9 +23,11 @@ export const config = {
     baseUrl: opt("HF_API_BASE_URL", "https://api.higgsfield.ai").replace(/\/+$/, ""),
   },
 
-  openai: {
-    apiKey: req("OPENAI_API_KEY"),
-    model: opt("OPENAI_MODEL", "gpt-5-nano"),
+  // The SDK reads ANTHROPIC_API_KEY itself, or an `ant auth login` profile,
+  // so the key is not demanded here. A missing key shows up as a logged
+  // fallback to template prompts rather than a crash.
+  anthropic: {
+    model: opt("ANTHROPIC_MODEL", "claude-opus-5-5"),
   },
 
   supabase: {

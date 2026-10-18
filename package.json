@@ -17,12 +17,13 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
     "@higgsfield/client": "^0.2.6",
     "@supabase/supabase-js": "^2.58.0",
     "dotenv": "^17.0.0",
     "grammy": "^1.40.0",
-    "openai": "^6.0.0",
-    "sharp": "^0.34.0"
+    "sharp": "^0.34.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

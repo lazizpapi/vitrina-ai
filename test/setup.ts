@@ -2,7 +2,7 @@
 // without a Supabase project, a bot token or an API key.
 process.env.BOT_TOKEN ||= "0:test";
 process.env.HF_API_KEY ||= "id:secret";
-process.env.OPENAI_API_KEY ||= "sk-test";
+process.env.ANTHROPIC_API_KEY ||= "sk-ant-test";
 process.env.SUPABASE_URL ||= "https://test.supabase.co";
 process.env.SUPABASE_SERVICE_ROLE_KEY ||= "service-key";
 process.env.CLICK_ENABLED ||= "true";

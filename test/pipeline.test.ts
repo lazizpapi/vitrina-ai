@@ -31,10 +31,10 @@ vi.mock("../src/db/repo.ts", () => ({
   },
 }));
 
-const create = vi.fn();
-vi.mock("openai", () => ({
+const parse = vi.fn();
+vi.mock("@anthropic-ai/sdk", () => ({
   default: class {
-    chat = { completions: { create } };
+    beta = { messages: { parse } };
   },
 }));
 
@@ -95,7 +95,8 @@ const brief = {
 beforeEach(async () => {
   stored.clear();
   jobs.length = 0;
-  create.mockRejectedValue(new Error("offline")); // exercise the template fallback
+  parse.mockRejectedValue(new Error("offline")); // exercise the template fallback
+  vi.spyOn(console, "warn").mockImplementation(() => {});
   stubFetch();
 });
 

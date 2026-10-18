@@ -1,10 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const create = vi.fn();
+const parse = vi.fn();
 
-vi.mock("openai", () => ({
+vi.mock("@anthropic-ai/sdk", () => ({
   default: class {
-    chat = { completions: { create } };
+    beta = { messages: { parse } };
   },
 }));
 
@@ -18,24 +18,44 @@ const brief = {
   lang: "uz" as const,
 };
 
-function completion(payload: unknown) {
-  return { choices: [{ message: { content: JSON.stringify(payload) } }] };
+function reply(parsed: unknown, stop_reason = "end_turn") {
+  return { parsed_output: parsed, stop_reason, content: [] };
 }
 
+const good = {
+  category: "drinkware",
+  prompts: {
+    main: "Studio shot on seamless grey.",
+    lifestyle: "On a kitchen counter at sunrise.",
+    model: "Held by a hiker.",
+    infographic: "Gradient backdrop, product low in frame.",
+  },
+  overlay: { title: "Termos Stanley", bullets: ["Issiq 24 soat", "Po'lat", "Kafolat"] },
+};
+
+beforeEach(() => {
+  parse.mockReset();
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+});
+
 describe("buildPrompts", () => {
+  it("asks Claude for a structured prompt set, with refusal fallback enabled", async () => {
+    parse.mockResolvedValueOnce(reply(good));
+
+    await buildPrompts(brief);
+
+    const request = parse.mock.calls[0]![0];
+    expect(request.model).toBe("claude-opus-5-5");
+    expect(request.fallbacks).toBe("default");
+    expect(request.betas).toContain("server-side-fallback-2026-07-01");
+    expect(request.output_config.effort).toBe("medium");
+    expect(request.output_config.format).toBeDefined();
+    expect(request).not.toHaveProperty("temperature");
+    expect(request).not.toHaveProperty("thinking");
+  });
+
   it("appends the card guidance and the no-text clause to every prompt", async () => {
-    create.mockResolvedValueOnce(
-      completion({
-        category: "drinkware",
-        prompts: {
-          main: "Studio shot on seamless grey.",
-          lifestyle: "On a kitchen counter at sunrise.",
-          model: "Held by a hiker.",
-          infographic: "Gradient backdrop, product low in frame.",
-        },
-        overlay: { title: "Termos Stanley", bullets: ["Issiq 24 soat", "Po'lat", "Kafolat"] },
-      }),
-    );
+    parse.mockResolvedValueOnce(reply(good));
 
     const set = await buildPrompts(brief);
 
@@ -47,8 +67,8 @@ describe("buildPrompts", () => {
     expect(set.prompts.main).toContain("Studio shot on seamless grey.");
   });
 
-  it("falls back to templates when the prompt writer is unavailable", async () => {
-    create.mockRejectedValueOnce(new Error("503"));
+  it("falls back to templates when the API is unavailable", async () => {
+    parse.mockRejectedValueOnce(new Error("503"));
 
     const set = await buildPrompts(brief);
 
@@ -57,8 +77,34 @@ describe("buildPrompts", () => {
     expect(set.overlay.title).toBe(brief.title);
   });
 
+  it("falls back to templates when the whole chain refuses", async () => {
+    parse.mockResolvedValueOnce(reply(null, "refusal"));
+
+    const set = await buildPrompts(brief);
+
+    expect(set.category).toBe("general");
+    expect(set.prompts.main).toContain(brief.title);
+  });
+
+  it("falls back to templates when the output does not match the schema", async () => {
+    parse.mockResolvedValueOnce(reply(null));
+
+    const set = await buildPrompts(brief);
+
+    expect(set.prompts.main).toContain(brief.title);
+  });
+
+  it("says why it fell back, so a missing key does not fail silently", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    parse.mockRejectedValueOnce(new Error("authentication_error"));
+
+    await buildPrompts(brief);
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("authentication_error"));
+  });
+
   it("always produces exactly three overlay bullets, padded in the seller's language", async () => {
-    create.mockRejectedValueOnce(new Error("offline"));
+    parse.mockRejectedValueOnce(new Error("offline"));
 
     const set = await buildPrompts(brief);
 
@@ -68,7 +114,7 @@ describe("buildPrompts", () => {
   });
 
   it("pads Russian briefs with Russian filler", async () => {
-    create.mockRejectedValueOnce(new Error("offline"));
+    parse.mockRejectedValueOnce(new Error("offline"));
 
     const set = await buildPrompts({ ...brief, bullets: [], lang: "ru" });
 
@@ -77,14 +123,10 @@ describe("buildPrompts", () => {
   });
 
   it("clamps overlay copy so it fits the card", async () => {
-    create.mockResolvedValueOnce(
-      completion({
-        category: "drinkware",
-        prompts: { main: "a", lifestyle: "b", model: "c", infographic: "d" },
-        overlay: {
-          title: "x".repeat(120),
-          bullets: ["y".repeat(120), "short", "also short"],
-        },
+    parse.mockResolvedValueOnce(
+      reply({
+        ...good,
+        overlay: { title: "x".repeat(120), bullets: ["y".repeat(120), "short", "also short"] },
       }),
     );
 
@@ -94,14 +136,8 @@ describe("buildPrompts", () => {
     expect(set.overlay.bullets[0]!.length).toBeLessThanOrEqual(32);
   });
 
-  it("repairs an empty prompt rather than sending it to the model", async () => {
-    create.mockResolvedValueOnce(
-      completion({
-        category: "drinkware",
-        prompts: { main: "  ", lifestyle: "b", model: "c", infographic: "d" },
-        overlay: { title: "T", bullets: ["1", "2", "3"] },
-      }),
-    );
+  it("repairs an empty prompt rather than sending it to the image model", async () => {
+    parse.mockResolvedValueOnce(reply({ ...good, prompts: { ...good.prompts, main: "  " } }));
 
     const set = await buildPrompts(brief);
 

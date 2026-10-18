@@ -59,7 +59,7 @@ Complete от Click не начислят дважды.
 
 TypeScript на Node 22+, [grammY](https://grammy.dev) для Telegram, Supabase для
 Postgres и хранилища, [sharp](https://sharp.pixelplumbing.com) для композиции,
-OpenAI для перевода брифа с узбекского или русского в английские сценарные
+Claude для перевода брифа с узбекского или русского в английские сценарные
 промпты, и официальный SDK Higgsfield.
 
 ## Установка
@@ -75,7 +75,8 @@ cp .env.example .env
 2. **Supabase.** Создайте проект, выполните `db/migrations/001_init.sql` в SQL-редакторе,
    скопируйте URL проекта и service-role ключ в `.env`. Бакет создастся сам при первом запуске.
 3. **Telegram.** Создайте бота через [@BotFather](https://t.me/BotFather) и впишите токен в `BOT_TOKEN`.
-4. **OpenAI.** Подойдёт любой ключ; модель задаётся в `OPENAI_MODEL`.
+4. **Anthropic.** Впишите ключ API в `ANTHROPIC_API_KEY`. По умолчанию модель —
+   Claude Opus 5.5, сменить её можно в `ANTHROPIC_MODEL`.
 5. **Click (необязательно).** После договора с мерчантом заполните четыре переменные
    `CLICK_*`, укажите в кабинете Shop API адреса `$PUBLIC_URL/click/prepare` и
    `$PUBLIC_URL/click/complete`, поставьте `CLICK_ENABLED=true`. До этого бот

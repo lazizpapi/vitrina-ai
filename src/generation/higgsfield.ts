@@ -8,12 +8,20 @@ import {
 } from "@higgsfield/client";
 import { config } from "../config.js";
 import { GenerationFailed, type GenerateRequest, type GenerateResult, type ImageProvider } from "./provider.js";
+import { Semaphore } from "./limit.js";
 
 export class HiggsfieldProvider implements ImageProvider {
   readonly name = "higgsfield";
   private readonly client: HiggsfieldClient;
+  /**
+   * The concurrency limit is per Higgsfield account, so one gate covers every
+   * pack in the process. A request over the limit is rejected, not queued,
+   * and the SDK does not retry it, so the queue has to live here.
+   */
+  private readonly gate: Semaphore;
 
-  constructor(client?: HiggsfieldClient) {
+  constructor(client?: HiggsfieldClient, concurrency: number = config.higgsfield.concurrency) {
+    this.gate = new Semaphore(concurrency);
     this.client =
       client ??
       createHiggsfieldClient({
@@ -27,7 +35,7 @@ export class HiggsfieldProvider implements ImageProvider {
   async generate(req: GenerateRequest): Promise<GenerateResult> {
     let res;
     try {
-      res = await this.client.subscribe(req.endpoint, {
+      res = await this.gate.run(() => this.client.subscribe(req.endpoint, {
         withPolling: true,
         input: {
           prompt: req.prompt,
@@ -36,7 +44,7 @@ export class HiggsfieldProvider implements ImageProvider {
           resolution: req.resolution,
           quality: req.quality,
         },
-      });
+      }));
     } catch (err) {
       throw asGenerationFailed(err);
     }

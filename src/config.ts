@@ -21,6 +21,9 @@ export const config = {
   higgsfield: {
     apiKey: req("HF_API_KEY"),
     baseUrl: opt("HF_API_BASE_URL", "https://api.higgsfield.ai").replace(/\/+$/, ""),
+    // Generations the account may run at once. Higgsfield ties this to funds
+    // added in the last 28 days: 2 under $25, 10 from $25, 20 from $100.
+    concurrency: Number(opt("HF_CONCURRENCY", "2")),
   },
 
   // The SDK reads ANTHROPIC_API_KEY itself, or an `ant auth login` profile,

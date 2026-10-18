@@ -25,11 +25,12 @@ export type CardSpec = {
 };
 
 /**
- * Book-keeping estimate per generated image, in USD. The API does not return a
- * price with the result, so this is what `jobs.cost_usd` records. Update it
- * from the rate shown in the Higgsfield console when the catalogue changes.
+ * List price per Marketing Studio Image generation, in USD, as published on the
+ * Higgsfield pricing page in October 2026 (0.011 at the maximum discount). The
+ * API does not return a price with the result, so this is what `jobs.cost_usd`
+ * records. Update it when the published rate changes.
  */
-export const ESTIMATED_COST_USD = 0.02;
+export const ESTIMATED_COST_USD = 0.013;
 
 export const CARD_ORDER: CardType[] = ["main", "lifestyle", "model", "infographic"];
 

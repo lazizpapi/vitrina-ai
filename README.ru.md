@@ -76,7 +76,7 @@ cp .env.example .env
    скопируйте URL проекта и service-role ключ в `.env`. Бакет создастся сам при первом запуске.
 3. **Telegram.** Создайте бота через [@BotFather](https://t.me/BotFather) и впишите токен в `BOT_TOKEN`.
 4. **Anthropic.** Впишите ключ API в `ANTHROPIC_API_KEY`. По умолчанию модель —
-   Claude Opus 5.5, сменить её можно в `ANTHROPIC_MODEL`.
+   Claude Sonnet 5.5, сменить её можно в `ANTHROPIC_MODEL`.
 5. **Click (необязательно).** После договора с мерчантом заполните четыре переменные
    `CLICK_*`, укажите в кабинете Shop API адреса `$PUBLIC_URL/click/prepare` и
    `$PUBLIC_URL/click/complete`, поставьте `CLICK_ENABLED=true`. До этого бот

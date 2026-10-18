@@ -30,7 +30,7 @@ export const config = {
   // so the key is not demanded here. A missing key shows up as a logged
   // fallback to template prompts rather than a crash.
   anthropic: {
-    model: opt("ANTHROPIC_MODEL", "claude-opus-5-5"),
+    model: opt("ANTHROPIC_MODEL", "claude-sonnet-5-5"),
   },
 
   supabase: {

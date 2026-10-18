@@ -77,7 +77,7 @@ cp .env.example .env
 3. **Telegram.** Create a bot with [@BotFather](https://t.me/BotFather) and put the
    token in `BOT_TOKEN`.
 4. **Anthropic.** Put an API key in `ANTHROPIC_API_KEY`. The model defaults to
-   Claude Opus 5.5 and can be changed with `ANTHROPIC_MODEL`.
+   Claude Sonnet 5.5 and can be changed with `ANTHROPIC_MODEL`.
 5. **Click (optional).** Sign a merchant contract, then set the four `CLICK_*`
    values, point the Shop API Prepare and Complete URLs at
    `$PUBLIC_URL/click/prepare` and `$PUBLIC_URL/click/complete`, and set

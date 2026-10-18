@@ -45,7 +45,7 @@ describe("buildPrompts", () => {
     await buildPrompts(brief);
 
     const request = parse.mock.calls[0]![0];
-    expect(request.model).toBe("claude-opus-5-5");
+    expect(request.model).toBe("claude-sonnet-5-5");
     expect(request.fallbacks).toBe("default");
     expect(request.betas).toContain("server-side-fallback-2026-07-01");
     expect(request.output_config.effort).toBe("medium");

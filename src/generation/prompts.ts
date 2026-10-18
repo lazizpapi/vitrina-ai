@@ -63,9 +63,9 @@ export async function buildPrompts(brief: ProductBrief): Promise<PromptSet> {
       max_tokens: 16_000,
       system: SYSTEM,
       messages: [{ role: "user", content: JSON.stringify(briefForModel(brief)) }],
-      // Thinking is always on for Claude Opus 5.5; effort is the only control,
-      // and its default there is medium. Set explicitly so a model change does
-      // not silently change cost.
+      // Claude Sonnet 5.5 thinks adaptively and defaults to high effort. A
+      // short structured brief does not need that, and setting effort here
+      // keeps a model change from silently changing cost.
       output_config: { effort: "medium", format: betaZodOutputFormat(PromptSetSchema) },
       ...refusalFallback(config.anthropic.model),
     });
